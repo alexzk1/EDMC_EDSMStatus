@@ -29,6 +29,7 @@ this.edsm_data = None
 this.sound_value = tk.IntVar(value=100)
 this.no_sound_on1st_route = tk.IntVar(0)
 this.next_is_route = False
+this.next_jump_label = None
 
 
 def plugin_start3(plugin_dir: str) -> str:
@@ -44,6 +45,18 @@ def plugin_stop() -> None:
     """
 
 
+def plugin_app(parent: tk.Frame):
+    """
+    Create a pair of TK widgets for the EDMC main window
+    """
+    # By default widgets inherit the current theme's colors
+    label = tk.Label(parent, text="Jump to:")
+    # Override theme's foreground color
+    this.next_jump_label = HyperlinkLabel(
+        parent, text="", foreground="yellow", popup_copy=True)
+    return (label, this.next_jump_label)
+
+
 def play_sound_file(file_name):
     playsound(os.path.join(os.path.dirname(
         os.path.realpath(__file__)), file_name), this.sound_value.get())
@@ -55,22 +68,29 @@ def journal_entry(cmdr, is_beta, system, station, entry, state):
         this.next_is_route = this.no_sound_on1st_route.get()
 
     if entry['event'] == 'FSDTarget':
-        if not this.next_is_route:
-            if not this.edsm_session:
-                this.edsm_session = requests.Session()
+        this.next_jump_label["text"] = entry['Name']
+        this.next_jump_label["url"] = "https://www.edsm.net/show-system?systemName={}".format(
+            quote(entry['Name']))
 
-            try:
-                r = this.edsm_session.get(
-                    'https://www.edsm.net/api-system-v1/bodies?systemName=%s' % quote(entry['Name']), timeout=10)
-                r.raise_for_status()
-                this.edsm_data = r.json() or None  # Unknown system represented as empty list
-            except:
-                this.edsm_data = None
+        if not this.edsm_session:
+            this.edsm_session = requests.Session()
+        try:
+            r = this.edsm_session.get(
+                'https://www.edsm.net/api-system-v1/bodies?systemName=%s' % quote(entry['Name']), timeout=10)
+            r.raise_for_status()
+            this.edsm_data = r.json() or None  # Unknown system represented as empty list
+        except:
+            this.edsm_data = None
 
-            if this.edsm_data == '[]' or this.edsm_data == None:
+        if this.edsm_data == '[]' or this.edsm_data == None:
+            this.next_jump_label["foreground"] = "yellow"
+            if not this.next_is_route:
                 play_sound_file("Unregistered_System.mp3")
-            else:
+        else:
+            this.next_jump_label["foreground"] = "green"
+            if not this.next_is_route:
                 play_sound_file("Registered_System.mp3")
+
         this.next_is_route = False
 
 
