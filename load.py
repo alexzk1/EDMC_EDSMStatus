@@ -9,24 +9,25 @@ try:
     # Python 2
     from urllib2 import quote
     import Tkinter as tk
+    import ttk
 except ModuleNotFoundError:
     # Python 3
     from urllib.parse import quote
     import tkinter as tk
+    import tkinter.ttk as ttk
 
 from ttkHyperlinkLabel import HyperlinkLabel
 from typing import Optional
 import myNotebook as nb
 from config import config
 from l10n import Locale
-from tkinter import *
 
 
 this = sys.modules[__name__]  # For holding module globals
 this.edsm_session = None
 this.edsm_data = None
-this.sound_value = IntVar(value=100)
-this.no_sound_on1st_route = IntVar(0)
+this.sound_value = tk.IntVar(value=100)
+this.no_sound_on1st_route = tk.IntVar(0)
 this.next_is_route = False
 
 
@@ -102,18 +103,19 @@ def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.F
     loadConfigValues()
 
     frame = nb.Frame(parent)
+    frame.columnconfigure(0, weight=1)
 
     test_snd = nb.Button(frame, text="Test Sound")
-    test_snd.grid()
+    test_snd.grid(sticky=tk.W)
     test_snd.config(command=test_sound_func)
 
-    scale = Scale(frame, from_=1, to=150, variable=this.sound_value,
-                  length=250, showvalue=1, label="Sound Volume", orient=HORIZONTAL)
+    scale = tk.Scale(frame, from_=1, to=150, variable=this.sound_value,
+                     length=250, showvalue=1, label="Sound Volume", orient=tk.HORIZONTAL)
     scale.set(this.sound_value.get())
-    scale.grid()
+    scale.grid(sticky=tk.W)
 
     nb.Checkbutton(frame, text="No Sound on 1st In Route",
-                   variable=this.no_sound_on1st_route).grid()
+                   variable=this.no_sound_on1st_route).grid(sticky=tk.W)
 
     return frame
 
