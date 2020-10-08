@@ -26,6 +26,7 @@ this = sys.modules[__name__]  # For holding module globals
 this.edsm_session = None
 this.edsm_data = None
 this.sound_value = IntVar(value=100)
+this.next_is_route = False
 
 
 def plugin_start3(plugin_dir: str) -> str:
@@ -47,22 +48,28 @@ def play_sound_file(file_name):
 
 
 def journal_entry(cmdr, is_beta, system, station, entry, state):
+
+    if entry['event'] == 'NavRoute':
+        this.next_is_route = True
+
     if entry['event'] == 'FSDTarget':
-        if not this.edsm_session:
-            this.edsm_session = requests.Session()
+        if not this.next_is_route:
+            if not this.edsm_session:
+                this.edsm_session = requests.Session()
 
-        try:
-            r = this.edsm_session.get(
-                'https://www.edsm.net/api-system-v1/bodies?systemName=%s' % quote(entry['Name']), timeout=10)
-            r.raise_for_status()
-            this.edsm_data = r.json() or None  # Unknown system represented as empty list
-        except:
-            this.edsm_data = None
+            try:
+                r = this.edsm_session.get(
+                    'https://www.edsm.net/api-system-v1/bodies?systemName=%s' % quote(entry['Name']), timeout=10)
+                r.raise_for_status()
+                this.edsm_data = r.json() or None  # Unknown system represented as empty list
+            except:
+                this.edsm_data = None
 
-        if this.edsm_data == '[]' or this.edsm_data == None:
-            play_sound_file("Unregistered_System.mp3")
-        else:
-            play_sound_file("Registered_System.mp3")
+            if this.edsm_data == '[]' or this.edsm_data == None:
+                play_sound_file("Unregistered_System.mp3")
+            else:
+                play_sound_file("Registered_System.mp3")
+        this.next_is_route = False
 
 
 def test_sound_func():
