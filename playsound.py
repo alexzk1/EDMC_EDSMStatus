@@ -1,7 +1,11 @@
+from platform import system
+
+
 class PlaysoundException(Exception):
     pass
 
-def _playsoundWin(sound, block = True):
+
+def _playsoundWin(sound, value=100, block=True):
     '''
     Utilizes windll.winmm. Tested and known to work with MP3 and WAVE on
     Windows 7 with Python 2.7. Probably works with more file formats.
@@ -15,8 +19,8 @@ def _playsoundWin(sound, block = True):
     '''
     from ctypes import c_buffer, windll
     from random import random
-    from time   import sleep
-    from sys    import getfilesystemencoding
+    from time import sleep
+    from sys import getfilesystemencoding
 
     def winCommand(*command):
         buf = c_buffer(255)
@@ -40,7 +44,8 @@ def _playsoundWin(sound, block = True):
     if block:
         sleep(float(durationInMS) / 1000.0)
 
-def _playsoundOSX(sound, block = True):
+
+def _playsoundOSX(sound, value=100, block=True):
     '''
     Utilizes AppKit.NSSound. Tested and known to work with MP3 and WAVE on
     OS X 10.11 with Python 2.7. Probably works with anything QuickTime supports.
@@ -52,16 +57,16 @@ def _playsoundOSX(sound, block = True):
 
     I never would have tried using AppKit.NSSound without seeing his code.
     '''
-    from AppKit     import NSSound
+    from AppKit import NSSound
     from Foundation import NSURL
-    from time       import sleep
+    from time import sleep
 
     if '://' not in sound:
         if not sound.startswith('/'):
             from os import getcwd
             sound = getcwd() + '/' + sound
         sound = 'file://' + sound
-    url   = NSURL.URLWithString_(sound)
+    url = NSURL.URLWithString_(sound)
     nssound = NSSound.alloc().initWithContentsOfURL_byReference_(url, True)
     if not nssound:
         raise IOError('Unable to load sound named: ' + sound)
@@ -70,7 +75,8 @@ def _playsoundOSX(sound, block = True):
     if block:
         sleep(nssound.duration())
 
-def _playsoundNix(sound, block=True):
+
+def _playsoundNix(sound, value=100, block=True):
     """Play a sound using GStreamer.
 
     Inspired by this:
@@ -100,6 +106,8 @@ def _playsoundNix(sound, block=True):
     else:
         playbin.props.uri = 'file://' + pathname2url(os.path.abspath(sound))
 
+    playbin.props.volume = float(value) / float(100)
+
     set_result = playbin.set_state(Gst.State.PLAYING)
     if set_result != Gst.StateChangeReturn.ASYNC:
         raise PlaysoundException(
@@ -112,7 +120,6 @@ def _playsoundNix(sound, block=True):
     playbin.set_state(Gst.State.NULL)
 
 
-from platform import system
 system = system()
 
 if system == 'Windows':
