@@ -26,6 +26,7 @@ this = sys.modules[__name__]  # For holding module globals
 this.edsm_session = None
 this.edsm_data = None
 this.sound_value = IntVar(value=100)
+this.no_sound_on1st_route = IntVar(0)
 this.next_is_route = False
 
 
@@ -50,7 +51,7 @@ def play_sound_file(file_name):
 def journal_entry(cmdr, is_beta, system, station, entry, state):
 
     if entry['event'] == 'NavRoute':
-        this.next_is_route = True
+        this.next_is_route = this.no_sound_on1st_route.get()
 
     if entry['event'] == 'FSDTarget':
         if not this.next_is_route:
@@ -76,15 +77,20 @@ def test_sound_func():
     play_sound_file("Registered_System.mp3")
 
 
-def loadSoundValue():
+def loadConfigValues():
     val = config.getint("EDMSStatus_sound_value")
     if val != 0:
         this.sound_value.set(val)
+    val = config.getint("EDMSStatus_sound_1stonroute")
+    this.no_sound_on1st_route.set(val)
 
 
-def saveSoundValue():
+def saveConfigValues():
     config.set("EDMSStatus_sound_value",
                this.sound_value.get())  # Store new value in config
+
+    config.set("EDMSStatus_sound_1stonroute",
+               this.no_sound_on1st_route.get())
 
 
 def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.Frame]:
@@ -93,9 +99,10 @@ def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.F
     """
 
     # Retrieve saved value from config
-    loadSoundValue()
+    loadConfigValues()
 
     frame = nb.Frame(parent)
+
     test_snd = nb.Button(frame, text="Test Sound")
     test_snd.grid()
     test_snd.config(command=test_sound_func)
@@ -105,6 +112,9 @@ def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.F
     scale.set(this.sound_value.get())
     scale.grid()
 
+    nb.Checkbutton(frame, text="No Sound on 1st In Route",
+                   variable=this.no_sound_on1st_route).grid()
+
     return frame
 
 
@@ -112,4 +122,4 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
     """
     Save settings.
     """
-    saveSoundValue()
+    saveConfigValues()
