@@ -4,6 +4,7 @@ from config import appname, applongname, appcmdname, appversion, copyright, conf
 import requests
 import os
 import sys
+import math
 
 try:
     # Python 2
@@ -25,11 +26,16 @@ from l10n import Locale
 
 this = sys.modules[__name__]  # For holding module globals
 this.edsm_session = None
-this.edsm_data = None
 this.sound_value = tk.IntVar(value=100)
 this.no_sound_on1st_route = tk.IntVar(0)
 this.next_is_route = False
 this.next_jump_label = None
+this.frame = None
+this.dist1 = None
+this.dist2 = None
+this.dist = None
+this.coord1 = None
+this.coord2 = None
 
 
 def plugin_start3(plugin_dir: str) -> str:
@@ -45,21 +51,87 @@ def plugin_stop() -> None:
     """
 
 
+def makeLabelAndHyperLabel(frame, r, label_text):
+    tk.Label(frame, text=label_text).grid(row=r, column=0, sticky=tk.W)
+    hl = HyperlinkLabel(frame, text="", foreground="yellow", popup_copy=True)
+    hl.grid(row=r, column=1, sticky=tk.W)
+    return hl
+
+
+def makeSeparator(frame, r):
+    tk.Frame(frame, highlightthickness=1).grid(
+        row=r, pady=3, columnspan=2, sticky=tk.EW)
+
+
+def isStrEmpty(str):
+    return "".__eq__(str)
+
+
 def plugin_app(parent: tk.Frame):
-    """
-    Create a pair of TK widgets for the EDMC main window
-    """
-    # By default widgets inherit the current theme's colors
-    label = tk.Label(parent, text="Jump to:")
-    # Override theme's foreground color
-    this.next_jump_label = HyperlinkLabel(
-        parent, text="", foreground="yellow", popup_copy=True)
-    return (label, this.next_jump_label)
+    this.frame = tk.Frame(parent)
+    this.frame.columnconfigure(1, weight=1)
+
+    this.next_jump_label = makeLabelAndHyperLabel(this.frame, 0, "Jump to:")
+    makeSeparator(this.frame, 1)
+
+    this.dist1 = makeLabelAndHyperLabel(this.frame, 2, "Distance src:")
+    this.dist2 = makeLabelAndHyperLabel(this.frame, 3, "Distance dst:")
+    this.dist = makeLabelAndHyperLabel(this.frame, 4, "Distance:")
+
+    return this.frame
 
 
 def play_sound_file(file_name):
     playsound(os.path.join(os.path.dirname(
         os.path.realpath(__file__)), file_name), this.sound_value.get())
+
+
+def calculateDistance(x1, y1, z1, x2, y2, z2):
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2)
+
+
+def requestEdsm(system):
+    # https://www.edsm.net/api-v1/system?systemName=Oochoss%20RI-B%20d13-0&showCoordinates=1&showInformation=0
+    if not this.edsm_session:
+        this.edsm_session = requests.Session()
+    edsm_data = None
+    try:
+        r = this.edsm_session.get(
+            'https://www.edsm.net/api-v1/system?&showCoordinates=1&showInformation=0&systemName=%s' % quote(system), timeout=10)
+        r.raise_for_status()
+        edsm_data = r.json() or None  # Unknown system represented as empty list
+    except:
+        edsm_data = None
+
+    return edsm_data
+
+
+def setLabelSystem(label, system):
+    label["text"] = system
+    label["url"] = "https://www.edsm.net/show-system?systemName={}".format(
+        quote(system))
+
+
+def updateDistancing(system, edsm_data):
+    if isStrEmpty(this.dist1["text"]):
+        setLabelSystem(this.dist1, system)
+        this.dist1["foreground"] = "green" if edsm_data else "yellow"
+        this.coord1 = edsm_data["coords"] if edsm_data else None
+    else:
+        if not isStrEmpty(this.dist2["text"]):
+            setLabelSystem(this.dist1, this.dist2["text"])
+            this.dist1["foreground"] = this.dist2["foreground"]
+            this.coord1 = this.coord2
+        setLabelSystem(this.dist2, system)
+        this.dist2["foreground"] = "green" if edsm_data else "yellow"
+        this.coord2 = edsm_data["coords"] if edsm_data else None
+
+    if this.coord1 and this.coord2:
+        d = calculateDistance(this.coord1["x"], this.coord1["y"], this.coord1["z"],
+                              this.coord2["x"], this.coord2["y"], this.coord2["z"])
+        this.dist["text"] = "{:.2f} (ly)".format(d)
+    else:
+        this.dist["text"] = "?"
 
 
 def journal_entry(cmdr, is_beta, system, station, entry, state):
@@ -68,21 +140,11 @@ def journal_entry(cmdr, is_beta, system, station, entry, state):
         this.next_is_route = this.no_sound_on1st_route.get()
 
     if entry['event'] == 'FSDTarget':
-        this.next_jump_label["text"] = entry['Name']
-        this.next_jump_label["url"] = "https://www.edsm.net/show-system?systemName={}".format(
-            quote(entry['Name']))
+        setLabelSystem(this.next_jump_label, entry['Name'])
+        edsm_data = requestEdsm(entry['Name'])
+        updateDistancing(entry['Name'], edsm_data)
 
-        if not this.edsm_session:
-            this.edsm_session = requests.Session()
-        try:
-            r = this.edsm_session.get(
-                'https://www.edsm.net/api-system-v1/bodies?systemName=%s' % quote(entry['Name']), timeout=10)
-            r.raise_for_status()
-            this.edsm_data = r.json() or None  # Unknown system represented as empty list
-        except:
-            this.edsm_data = None
-
-        if this.edsm_data == '[]' or this.edsm_data == None:
+        if edsm_data == None:
             this.next_jump_label["foreground"] = "yellow"
             if not this.next_is_route:
                 play_sound_file("Unregistered_System.mp3")
