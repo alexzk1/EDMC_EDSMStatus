@@ -112,19 +112,27 @@ def setLabelSystem(label, system):
         quote(system))
 
 
+def isLabelSameSystem(label, system):
+    t = label["text"]
+    if isStrEmpty(system) or isStrEmpty(t):
+        return False
+    return system.__eq__(t)
+
+
 def updateDistancing(system, edsm_data):
     if isStrEmpty(this.dist1["text"]):
         setLabelSystem(this.dist1, system)
         this.dist1["foreground"] = "green" if edsm_data else "yellow"
         this.coord1 = edsm_data["coords"] if edsm_data else None
     else:
-        if not isStrEmpty(this.dist2["text"]):
-            setLabelSystem(this.dist1, this.dist2["text"])
-            this.dist1["foreground"] = this.dist2["foreground"]
-            this.coord1 = this.coord2
-        setLabelSystem(this.dist2, system)
-        this.dist2["foreground"] = "green" if edsm_data else "yellow"
-        this.coord2 = edsm_data["coords"] if edsm_data else None
+        if not isLabelSameSystem(this.dist2, system):
+            if not isStrEmpty(this.dist2["text"]):
+                setLabelSystem(this.dist1, this.dist2["text"])
+                this.dist1["foreground"] = this.dist2["foreground"]
+                this.coord1 = this.coord2
+            setLabelSystem(this.dist2, system)
+            this.dist2["foreground"] = "green" if edsm_data else "yellow"
+            this.coord2 = edsm_data["coords"] if edsm_data else None
 
     if this.coord1 and this.coord2:
         d = calculateDistance(this.coord1["x"], this.coord1["y"], this.coord1["z"],
