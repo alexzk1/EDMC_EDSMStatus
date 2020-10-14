@@ -128,6 +128,8 @@ def updateDistancing(system, edsm_data):
         setLabelSystem(this.dist1, system)
         this.dist1["foreground"] = "green" if edsm_data else "yellow"
         this.coord1 = extractCoord(edsm_data)
+        if not this.coord1:
+            this.dist1["foreground"] = "red"
     else:
         if not isLabelSameSystem(this.dist2, system):
             if not isStrEmpty(this.dist2["text"]):
@@ -137,6 +139,8 @@ def updateDistancing(system, edsm_data):
             setLabelSystem(this.dist2, system)
             this.dist2["foreground"] = "green" if edsm_data else "yellow"
             this.coord2 = extractCoord(edsm_data)
+            if not this.coord2:
+                this.dist2["foreground"] = "red"
 
     if this.coord1 and this.coord2:
         d = calculateDistance(this.coord1["x"], this.coord1["y"], this.coord1["z"],
