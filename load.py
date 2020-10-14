@@ -125,22 +125,21 @@ def extractCoord(edsm_data):
 
 def updateDistancing(system, edsm_data):
     if isStrEmpty(this.dist1["text"]):
+
         setLabelSystem(this.dist1, system)
-        this.dist1["foreground"] = "green" if edsm_data else "yellow"
         this.coord1 = extractCoord(edsm_data)
-        if not this.coord1:
-            this.dist1["foreground"] = "red"
+        this.dist1["foreground"] = "green" if edsm_data and this.coord1 else "yellow"
+
     else:
         if not isLabelSameSystem(this.dist2, system):
             if not isStrEmpty(this.dist2["text"]):
                 setLabelSystem(this.dist1, this.dist2["text"])
                 this.dist1["foreground"] = this.dist2["foreground"]
                 this.coord1 = this.coord2
+
             setLabelSystem(this.dist2, system)
-            this.dist2["foreground"] = "green" if edsm_data else "yellow"
             this.coord2 = extractCoord(edsm_data)
-            if not this.coord2:
-                this.dist2["foreground"] = "red"
+            this.dist2["foreground"] = "green" if edsm_data and this.coord2 else "yellow"
 
     if this.coord1 and this.coord2:
         d = calculateDistance(this.coord1["x"], this.coord1["y"], this.coord1["z"],
