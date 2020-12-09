@@ -42,6 +42,10 @@ def plugin_start3(plugin_dir: str) -> str:
     """
     Load this plugin into EDMC
     """
+
+    # Retrieve saved value from config
+    loadConfigValues()
+
     return "EDSM System Checker v2"
 
 
@@ -196,9 +200,6 @@ def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.F
     Return a TK Frame for adding to the EDMC settings dialog.
     """
 
-    # Retrieve saved value from config
-    loadConfigValues()
-
     frame = nb.Frame(parent)
     frame.columnconfigure(0, weight=1)
 
@@ -213,6 +214,9 @@ def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.F
 
     nb.Checkbutton(frame, text="No Sound on 1st In Route",
                    variable=this.no_sound_on1st_route).grid(sticky=tk.W)
+
+    # Retrieve saved value from config
+    loadConfigValues()
 
     return frame
 
