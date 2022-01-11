@@ -22,12 +22,27 @@ from typing import Optional
 import myNotebook as nb
 from config import config
 from l10n import Locale
-
-
 this = sys.modules[__name__]  # For holding module globals
+
+# For compatibility with pre-5.0.0
+if not hasattr(config, 'get_int'):
+    config.get_int = config.getint
+
+if not hasattr(config, 'get_str'):
+    config.get_str = config.get
+
+if not hasattr(config, 'get_bool'):
+    config.get_bool = lambda key: bool(config.getint(key))
+
+if not hasattr(config, 'get_list'):
+    config.get_list = config.get
+
+# This could also be returned from plugin_start3()
+plugin_name = os.path.basename(os.path.dirname(__file__))
+
 this.edsm_session = None
 this.sound_value = tk.IntVar(value=100)
-this.no_sound_on1st_route = tk.IntVar(0)
+this.no_sound_on1st_route = tk.IntVar(value=0)
 this.next_is_route = False
 this.next_jump_label = None
 this.frame = None
@@ -75,6 +90,7 @@ def plugin_app(parent: tk.Frame):
     this.frame = tk.Frame(parent)
     this.frame.columnconfigure(1, weight=1)
 
+    
     this.next_jump_label = makeLabelAndHyperLabel(this.frame, 0, "Jump to:")
     makeSeparator(this.frame, 1)
 
