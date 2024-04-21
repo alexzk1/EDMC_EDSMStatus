@@ -6,9 +6,11 @@ When in game open either the Galaxy map or the navigation window and select a sy
 
 # Updates by alexzk version:
 
-What it do, when you select system on map it talks (plays mp3 there) if your current selection is known for EDSM. Also it is shown in "Jump to".
+* What it do, when you select system on map it talks (plays mp3 there) if your current selection is known for EDSM. Also it is shown in "Jump to".
 I added automatic distancing. If you click 2 stars on galaxy map and both are known to edsm it will calculate distance and show there.
 So cool tool to measure of farmost sides.
+* Now it can use `EDSMOverlay` to display information too.
+* If `EDSMOverlay` is detected, sound can be disabled.
 
 When I say "click" I mean "select as jump target".
 
