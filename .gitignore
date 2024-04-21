@@ -1,0 +1,17 @@
+overlay
+CMakeLists.txt.user
+CMakeLists.txt.user.*
+Makefile
+__pycache__/
+*.o
+.cmake/
+.qtc/
+CMakeCache.txt
+CMakeCache.txt.prev
+CMakeFiles/
+Testing/
+cmake_install.cmake
+qtcsettings.cmake
+Build*/
+build*/
+.vscode/

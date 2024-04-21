@@ -94,10 +94,13 @@ def _playsoundNix(sound, value=100, block=True):
         # python 2
         from urllib import pathname2url
 
-    import gi
-    gi.require_version('Gst', '1.0')
-    from gi.repository import Gst
-
+    try:
+        import gi
+        gi.require_version('Gst', '1.0')
+        from gi.repository import Gst
+    except ImportError:
+        raise PlaysoundException("Could not import gst")
+        
     Gst.init(None)
 
     playbin = Gst.ElementFactory.make('playbin', 'playbin')

@@ -1,67 +1,201 @@
-from datetime import datetime
-from playsound import playsound
-from config import appname, applongname, appcmdname, appversion, copyright, config
-import requests
+import math
 import os
 import sys
-import math
-
-try:
-    # Python 2
-    from urllib2 import quote
-    import Tkinter as tk
-    import ttk
-except ModuleNotFoundError:
-    # Python 3
-    from urllib.parse import quote
-    import tkinter as tk
-    import tkinter.ttk as ttk
-
-from ttkHyperlinkLabel import HyperlinkLabel
+import tkinter as tk
+from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
+
 import myNotebook as nb
-from config import config
-from l10n import Locale
+import requests
+from ttkHyperlinkLabel import HyperlinkLabel
+
+import _configs_status as cfv
+import _gui_builder_status as gb
+from _logger import logger
+from playsound import playsound
+
+__configVars: cfv.ConfigVars = cfv.ConfigVars()
+
 this = sys.modules[__name__]  # For holding module globals
 
-# For compatibility with pre-5.0.0
-if not hasattr(config, 'get_int'):
-    config.get_int = config.getint
-
-if not hasattr(config, 'get_str'):
-    config.get_str = config.get
-
-if not hasattr(config, 'get_bool'):
-    config.get_bool = lambda key: bool(config.getint(key))
-
-if not hasattr(config, 'get_list'):
-    config.get_list = config.get
-
-# This could also be returned from plugin_start3()
-plugin_name = os.path.basename(os.path.dirname(__file__))
-
 this.edsm_session = None
-this.sound_value = tk.IntVar(value=100)
-this.no_sound_on1st_route = tk.IntVar(value=0)
 this.next_is_route = False
 this.next_jump_label = None
 this.frame = None
 this.dist1 = None
 this.dist2 = None
 this.dist = None
+this.dist_overlay: str = ""
+
 this.coord1 = None
 this.coord2 = None
 
+__registeredColor: str = "green"
+__unregisteredColor: str = "yellow"
+
+__CaptionText = "EDSM System Checker With Overlay"
+__ShortCaptionText = "EDSM Checker"
+
+
+def __makeLabelAndHyperLabelOnMainPage(frame, r, label_text):
+    tk.Label(frame, text=label_text).grid(row=r, column=0, sticky=tk.W)
+    hl = HyperlinkLabel(frame, text="", foreground="yellow", popup_copy=True)
+    hl.grid(row=r, column=1, sticky=tk.W)
+    return hl
+
+
+def __isStrEmpty(str):
+    return "".__eq__(str)
+
+
+def __play_sound_file(file_name):
+    global __configVars
+    if not __configVars.isMuted():
+        playsound(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)), file_name),
+            __configVars.iSoundVolume.get(),
+        )
+
+
+def __calculateDistance(x1, y1, z1, x2, y2, z2):
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2)
+
+
+def __requestEdsm(system):
+    global __configVars
+
+    # https://www.edsm.net/api-v1/system?systemName=Oochoss%20RI-B%20d13-0&showCoordinates=1&showInformation=0
+    if not this.edsm_session:
+        this.edsm_session = requests.Session()
+    edsm_data = None
+    try:
+        response = this.edsm_session.get(
+            "https://www.edsm.net/api-v1/system?&showCoordinates=1&showInformation=0&systemName=%s"
+            % quote(system),
+            timeout=min(90, max(3, __configVars.iEdsmTimeoutSeconds.get())),
+        )
+        response.raise_for_status()
+        edsm_data = response.json() or None  # Unknown system represented as empty list
+    except:  # noqa: E722
+        edsm_data = None
+
+    return edsm_data
+
+
+def __setLabelSystem(label, system):
+    label["text"] = system
+    label["url"] = "https://www.edsm.net/show-system?systemName={}".format(
+        quote(system)
+    )
+
+
+def __isLabelSameSystem(label, system):
+    t = label["text"]
+    if __isStrEmpty(system) or __isStrEmpty(t):
+        return False
+    return system.__eq__(t)
+
+
+def __extractCoord(edsm_data):
+    return edsm_data["coords"] if (edsm_data and "coords" in edsm_data) else None
+
+
+def __updateDistancing(system, edsm_data):
+    global __registeredColor
+    global __unregisteredColor
+
+    if __isStrEmpty(this.dist1["text"]):
+        __setLabelSystem(this.dist1, system)
+        this.coord1 = __extractCoord(edsm_data)
+        this.dist1["foreground"] = (
+            __registeredColor if edsm_data and this.coord1 else __unregisteredColor
+        )
+
+    else:
+        if not __isLabelSameSystem(this.dist2, system):
+            if not __isStrEmpty(this.dist2["text"]):
+                __setLabelSystem(this.dist1, this.dist2["text"])
+                this.dist1["foreground"] = this.dist2["foreground"]
+                this.coord1 = this.coord2
+
+            __setLabelSystem(this.dist2, system)
+            this.coord2 = __extractCoord(edsm_data)
+            this.dist2["foreground"] = (
+                __registeredColor if edsm_data and this.coord2 else __unregisteredColor
+            )
+
+    if this.coord1 and this.coord2:
+        d = __calculateDistance(
+            this.coord1["x"],
+            this.coord1["y"],
+            this.coord1["z"],
+            this.coord2["x"],
+            this.coord2["y"],
+            this.coord2["z"],
+        )
+        this.dist_overlay = "{:.2f} (ly)".format(d)
+        this.dist["text"] = this.dist_overlay
+    else:
+        this.dist_overlay = ""
+        this.dist["text"] = "?"
+
+
+def __uknownSystem(system: str):
+    global __configVars
+    global __unregisteredColor
+    __play_sound_file("Unregistered_System.mp3")
+    __configVars.showTextOnOverlay("EDSM does not know {}".format(system), __unregisteredColor)
+
+
+def __visitedSystem(system: str):
+    global __configVars
+    global __unregisteredColor
+    __play_sound_file("Registered_System.mp3")
+
+    if not this.dist_overlay:
+        __configVars.showTextOnOverlay("EDSM knows {}".format(system), __registeredColor)
+    else:
+        __configVars.showTextOnOverlay(
+            "EDSM knows {}. Distance between last 2 selected: {}".format(
+                system, this.dist_overlay
+            ),
+            __registeredColor,
+        )
+
+
+def journal_entry(cmdr, is_beta, system, station, entry, state):
+    global __registeredColor
+    global __unregisteredColor
+    global __configVars
+
+    if entry["event"] == "NavRoute":
+        this.next_is_route = __configVars.iNoReportOnFirst.get()
+
+    if entry["event"] == "FSDTarget":
+        systemName: str = entry["Name"]
+
+        __setLabelSystem(this.next_jump_label, systemName)
+        edsm_data = __requestEdsm(systemName)
+        __updateDistancing(systemName, edsm_data)
+
+        if edsm_data is None:
+            this.next_jump_label["foreground"] = __unregisteredColor
+            if not this.next_is_route:
+                __uknownSystem(systemName)
+        else:
+            this.next_jump_label["foreground"] = __registeredColor
+            if not this.next_is_route:
+                __visitedSystem(systemName)
+        this.next_is_route = False
+
 
 def plugin_start3(plugin_dir: str) -> str:
-    """
-    Load this plugin into EDMC
-    """
+    global __configVars
+    global __ShortCaptionText
 
-    # Retrieve saved value from config
-    loadConfigValues()
-
-    return "EDSM System Checker v2"
+    __configVars.loadFromSettings()
+    return __ShortCaptionText
 
 
 def plugin_stop() -> None:
@@ -70,175 +204,87 @@ def plugin_stop() -> None:
     """
 
 
-def makeLabelAndHyperLabel(frame, r, label_text):
-    tk.Label(frame, text=label_text).grid(row=r, column=0, sticky=tk.W)
-    hl = HyperlinkLabel(frame, text="", foreground="yellow", popup_copy=True)
-    hl.grid(row=r, column=1, sticky=tk.W)
-    return hl
-
-
-def makeSeparator(frame, r):
-    tk.Frame(frame, highlightthickness=1).grid(
-        row=r, pady=3, columnspan=2, sticky=tk.EW)
-
-
-def isStrEmpty(str):
-    return "".__eq__(str)
-
-
 def plugin_app(parent: tk.Frame):
     this.frame = tk.Frame(parent)
     this.frame.columnconfigure(1, weight=1)
 
-    
-    this.next_jump_label = makeLabelAndHyperLabel(this.frame, 0, "Jump to:")
-    makeSeparator(this.frame, 1)
+    this.next_jump_label = __makeLabelAndHyperLabelOnMainPage(this.frame, 0, "Jump to:")
+    # __makeSeparatorOnMainPage(this.frame, 1)
 
-    this.dist1 = makeLabelAndHyperLabel(this.frame, 2, "Distance src:")
-    this.dist2 = makeLabelAndHyperLabel(this.frame, 3, "Distance dst:")
-    this.dist = makeLabelAndHyperLabel(this.frame, 4, "Distance:")
+    this.dist1 = __makeLabelAndHyperLabelOnMainPage(this.frame, 2, "EDSM Distance Src:")
+    this.dist2 = __makeLabelAndHyperLabelOnMainPage(this.frame, 3, "EDSM Distance Dst:")
+    this.dist = __makeLabelAndHyperLabelOnMainPage(
+        this.frame, 4, "EDSM Distance Src<->Dst:"
+    )
 
     return this.frame
-
-
-def play_sound_file(file_name):
-    playsound(os.path.join(os.path.dirname(
-        os.path.realpath(__file__)), file_name), this.sound_value.get())
-
-
-def calculateDistance(x1, y1, z1, x2, y2, z2):
-    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2)
-
-
-def requestEdsm(system):
-    # https://www.edsm.net/api-v1/system?systemName=Oochoss%20RI-B%20d13-0&showCoordinates=1&showInformation=0
-    if not this.edsm_session:
-        this.edsm_session = requests.Session()
-    edsm_data = None
-    try:
-        r = this.edsm_session.get(
-            'https://www.edsm.net/api-v1/system?&showCoordinates=1&showInformation=0&systemName=%s' % quote(system), timeout=10)
-        r.raise_for_status()
-        edsm_data = r.json() or None  # Unknown system represented as empty list
-    except:
-        edsm_data = None
-
-    return edsm_data
-
-
-def setLabelSystem(label, system):
-    label["text"] = system
-    label["url"] = "https://www.edsm.net/show-system?systemName={}".format(
-        quote(system))
-
-
-def isLabelSameSystem(label, system):
-    t = label["text"]
-    if isStrEmpty(system) or isStrEmpty(t):
-        return False
-    return system.__eq__(t)
-
-
-def extractCoord(edsm_data):
-    return edsm_data["coords"] if (edsm_data and "coords" in edsm_data) else None
-
-
-def updateDistancing(system, edsm_data):
-    if isStrEmpty(this.dist1["text"]):
-
-        setLabelSystem(this.dist1, system)
-        this.coord1 = extractCoord(edsm_data)
-        this.dist1["foreground"] = "green" if edsm_data and this.coord1 else "yellow"
-
-    else:
-        if not isLabelSameSystem(this.dist2, system):
-            if not isStrEmpty(this.dist2["text"]):
-                setLabelSystem(this.dist1, this.dist2["text"])
-                this.dist1["foreground"] = this.dist2["foreground"]
-                this.coord1 = this.coord2
-
-            setLabelSystem(this.dist2, system)
-            this.coord2 = extractCoord(edsm_data)
-            this.dist2["foreground"] = "green" if edsm_data and this.coord2 else "yellow"
-
-    if this.coord1 and this.coord2:
-        d = calculateDistance(this.coord1["x"], this.coord1["y"], this.coord1["z"],
-                              this.coord2["x"], this.coord2["y"], this.coord2["z"])
-        this.dist["text"] = "{:.2f} (ly)".format(d)
-    else:
-        this.dist["text"] = "?"
-
-
-def journal_entry(cmdr, is_beta, system, station, entry, state):
-
-    if entry['event'] == 'NavRoute':
-        this.next_is_route = this.no_sound_on1st_route.get()
-
-    if entry['event'] == 'FSDTarget':
-        setLabelSystem(this.next_jump_label, entry['Name'])
-        edsm_data = requestEdsm(entry['Name'])
-        updateDistancing(entry['Name'], edsm_data)
-
-        if edsm_data == None:
-            this.next_jump_label["foreground"] = "yellow"
-            if not this.next_is_route:
-                play_sound_file("Unregistered_System.mp3")
-        else:
-            this.next_jump_label["foreground"] = "green"
-            if not this.next_is_route:
-                play_sound_file("Registered_System.mp3")
-
-        this.next_is_route = False
-
-
-def test_sound_func():
-    play_sound_file("Registered_System.mp3")
-
-
-def loadConfigValues():
-    val = config.getint("EDMSStatus_sound_value")
-    if val != 0:
-        this.sound_value.set(val)
-    val = config.getint("EDMSStatus_sound_1stonroute")
-    this.no_sound_on1st_route.set(val)
-
-
-def saveConfigValues():
-    config.set("EDMSStatus_sound_value",
-               this.sound_value.get())  # Store new value in config
-
-    config.set("EDMSStatus_sound_1stonroute",
-               this.no_sound_on1st_route.get())
-
-
-def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.Frame]:
-    """
-    Return a TK Frame for adding to the EDMC settings dialog.
-    """
-
-    frame = nb.Frame(parent)
-    frame.columnconfigure(0, weight=1)
-
-    test_snd = nb.Button(frame, text="Test Sound")
-    test_snd.grid(sticky=tk.W)
-    test_snd.config(command=test_sound_func)
-
-    scale = tk.Scale(frame, from_=1, to=150, variable=this.sound_value,
-                     length=250, showvalue=1, label="Sound Volume", orient=tk.HORIZONTAL)
-    scale.set(this.sound_value.get())
-    scale.grid(sticky=tk.W)
-
-    nb.Checkbutton(frame, text="No Sound on 1st In Route",
-                   variable=this.no_sound_on1st_route).grid(sticky=tk.W)
-
-    # Retrieve saved value from config
-    loadConfigValues()
-
-    return frame
 
 
 def prefs_changed(cmdr: str, is_beta: bool) -> None:
     """
     Save settings.
     """
-    saveConfigValues()
+    global __configVars
+    __configVars.saveToSettings()
+
+
+def plugin_prefs(parent: nb.Notebook, cmdr: str, is_beta: bool) -> Optional[tk.Frame]:
+    """
+    Return a TK Frame for adding to the EDMC settings dialog.
+    """
+    global __configVars
+
+    mainFrame = nb.Frame(parent)
+    mainFrame.columnconfigure(0, weight=1)
+
+    linkFrame = nb.Frame(mainFrame)
+    declareLink = [
+        gb.TTextAndInputRow(
+            HyperlinkLabel(
+                linkFrame,
+                text=__CaptionText,
+                url="https://github.com/alexzk1/EDMC_EDSMStatus",
+                background=nb.Label().cget("background"),
+                underline=True,
+            ),
+            None,
+            False,
+        ),
+        gb.TTextAndInputRow("by Steven Bjerke, Oleksiy Zakharov", None, False),
+    ]
+    gb.MakeGuiTable(parent=linkFrame, defines=declareLink, initialRaw=0)
+    linkFrame.grid(sticky=tk.EW)
+
+    gb.AddMainSeparator(mainFrame)
+
+    inputsFrame = nb.Frame(mainFrame)
+    gb.MakeGuiTable(
+        parent=inputsFrame, defines=__configVars.getVisualInputs(), initialRaw=0
+    )
+    inputsFrame.grid(sticky=tk.EW)
+
+    gb.AddMainSeparator(mainFrame)
+
+    testFrame = nb.Frame(mainFrame)
+    declareButtons = [
+        gb.TTextAndInputRow("", None, False),
+        gb.TTextAndInputRow(
+            nb.Button(
+                testFrame,
+                text="Test Known",
+                command=lambda: __visitedSystem("TestSystemName"),
+            ),
+            nb.Button(
+                testFrame,
+                text="Test Unknown",
+                command=lambda: __uknownSystem("TestSystemName"),
+            ),
+            False,
+        ),
+    ]
+    gb.MakeGuiTable(parent=testFrame, defines=declareButtons, initialRaw=0)
+    testFrame.grid(sticky=tk.EW)
+
+    gb.AddMainSeparator(mainFrame)
+
+    return mainFrame
