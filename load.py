@@ -144,17 +144,20 @@ def __updateDistancing(system, edsm_data):
 def __uknownSystem(system: str):
     global __configVars
     global __unregisteredColor
+    __configVars.showTextOnOverlay(
+        "EDSM does not know {}".format(system), __unregisteredColor
+    )
     __play_sound_file("Unregistered_System.mp3")
-    __configVars.showTextOnOverlay("EDSM does not know {}".format(system), __unregisteredColor)
 
 
 def __visitedSystem(system: str):
     global __configVars
     global __unregisteredColor
-    __play_sound_file("Registered_System.mp3")
 
     if not this.dist_overlay:
-        __configVars.showTextOnOverlay("EDSM knows {}".format(system), __registeredColor)
+        __configVars.showTextOnOverlay(
+            "EDSM knows {}".format(system), __registeredColor
+        )
     else:
         __configVars.showTextOnOverlay(
             "EDSM knows {}. Distance between last 2 selected: {}".format(
@@ -162,6 +165,7 @@ def __visitedSystem(system: str):
             ),
             __registeredColor,
         )
+    __play_sound_file("Registered_System.mp3")
 
 
 def journal_entry(cmdr, is_beta, system, station, entry, state):
