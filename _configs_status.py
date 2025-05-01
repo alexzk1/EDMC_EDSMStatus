@@ -2,7 +2,7 @@ import collections
 import json
 import logging
 import tkinter as tk
-
+from enum import Enum
 from config import config
 
 import myNotebook as nb
@@ -19,11 +19,17 @@ except ImportError:
         edmcoverlay = None
 
 
+class OverlayOutputType(Enum):
+    EDSM_INFO = (1,)
+    STATION_INFO = (2,)
+
+
 class ConfigVars:
     __TJsonFieldMapper = collections.namedtuple(
         "__TJsonFieldMapper", "json_name field_ref"
     )
     __json_config_name: str = "edmc_edsm_status_json"
+    __kMaximimumSecondsToShowMessage = 90
 
     iOverlay = None
 
@@ -34,9 +40,11 @@ class ConfigVars:
     iNoReportOnFirst: tk.BooleanVar = tk.BooleanVar(value=False)
     iSoundVolume: tk.IntVar = tk.IntVar(value=100)
     iDebug: tk.BooleanVar = tk.BooleanVar(value=False)
+    iReportDockedEconomyOnOverlay: tk.BooleanVar = tk.BooleanVar(value=True)
     iEnableOverlay: tk.BooleanVar = tk.BooleanVar(value=True)
     _iNoSoundOverlay: tk.BooleanVar = tk.BooleanVar(value=False)
     _iOverlayFadeSeconds: tk.IntVar = tk.IntVar(value=8)
+    _iStationOverlayFadeSeconds: tk.IntVar = tk.IntVar(value=20)
 
     def __init__(self) -> None:
         self.iDebug.trace_add("write", self.__debug_switched)
@@ -55,6 +63,12 @@ class ConfigVars:
             self.__TJsonFieldMapper("enable_overlay", self.iEnableOverlay),
             self.__TJsonFieldMapper("nosoundoverlay", self._iNoSoundOverlay),
             self.__TJsonFieldMapper("iOverlayFadeSeconds", self._iOverlayFadeSeconds),
+            self.__TJsonFieldMapper(
+                "iStationOverlayFadeSeconds", self._iStationOverlayFadeSeconds
+            ),
+            self.__TJsonFieldMapper(
+                "iReportDockedEconomyOnOverlay", self.iReportDockedEconomyOnOverlay
+            ),
         ]
 
     def __debug_switched(self, var, index, mode):
@@ -97,6 +111,7 @@ class ConfigVars:
 
     def getVisualInputs(self):
         listThisPlugin: list[gb.TTextAndInputRow] = [
+            gb.TTextAndInputRow("Debug", self.iDebug, False),
             gb.TTextAndInputRow(
                 "No report on 1st star in new route", self.iNoReportOnFirst, False
             ),
@@ -104,15 +119,15 @@ class ConfigVars:
                 "EDSM Timeout (seconds)", self.iEdsmTimeoutSeconds, False
             ),
             gb.TTextAndInputRow("Sound Volume", self.iSoundVolume, True),
-            gb.TTextAndInputRow("", None, False),
-            gb.TTextAndInputRow("Debug", self.iDebug, False),
         ]
 
         listOverlay: list[gb.TTextAndInputRow] = []
+        stationOverlay: list[gb.TTextAndInputRow] = []
+
         if self.iOverlay:
             listOverlay = [
                 gb.TTextAndInputRow("Overlay Configuration:", None, False),
-                gb.TTextAndInputRow("Enable Overlay", self.iEnableOverlay, False),
+                gb.TTextAndInputRow("Enable Overlay ", self.iEnableOverlay, False),
                 gb.TTextAndInputRow("Text Without Sound", self._iNoSoundOverlay, False),
                 gb.TTextAndInputRow("Text X Position", self.iXPos, False),
                 gb.TTextAndInputRow("Text Y Position", self.iYPos, False),
@@ -120,20 +135,47 @@ class ConfigVars:
                     "Text Fadeout (seconds)", self._iOverlayFadeSeconds, False
                 ),
             ]
+            stationOverlay = [
+                gb.TTextAndInputRow("Docked Station on Overlay:", None, False),
+                gb.TTextAndInputRow("(overlay should be enabled above)", None, False),
+                gb.TTextAndInputRow(
+                    "Show Station Economy On Docking",
+                    self.iReportDockedEconomyOnOverlay,
+                    True,
+                ),
+                gb.TTextAndInputRow(
+                    "Station Info Fadeout (seconds)",
+                    self._iStationOverlayFadeSeconds,
+                    False,
+                ),
+            ]
 
-        return listThisPlugin + listOverlay
+        return listThisPlugin + listOverlay + stationOverlay
 
-    def showTextOnOverlay(self, text: str, color: str):
+    def showTextOnOverlay(
+        self,
+        text: str,
+        color: str,
+        messageType: OverlayOutputType = OverlayOutputType.EDSM_INFO,
+    ):
         if self.iOverlay and self.iEnableOverlay.get() and self.iOverlay.connect():
             self.iOverlay.send_message(
-                "is_visited_star",
+                "EdsmStatusMessage",
                 text,
                 color,
                 self.iXPos.get(),
                 self.iYPos.get(),
-                min(60, max(1, self._iOverlayFadeSeconds.get())),
+                min(
+                    self.__kMaximimumSecondsToShowMessage,
+                    max(1, self.getTextPause(messageType)),
+                ),
                 "normal",
             )
 
     def isMuted(self) -> bool:
         return self.iOverlay and self._iNoSoundOverlay.get()
+
+    def getTextPause(self, forType: OverlayOutputType):
+        if forType == OverlayOutputType.STATION_INFO:
+            return self._iStationOverlayFadeSeconds.get()
+        return self._iOverlayFadeSeconds.get()

@@ -34,6 +34,8 @@ this.coord2 = None
 __registeredColor: str = "green"
 __unregisteredColor: str = "yellow"
 
+__station_economy_color: str = "#DDFFB450"
+
 __CaptionText = "EDSM System Checker With Overlay"
 __ShortCaptionText = "EDSM Checker"
 
@@ -168,6 +170,28 @@ def __visitedSystem(system: str):
     __play_sound_file("Registered_System.mp3")
 
 
+def __display_economy_type_on_overlay(entry):
+    if __configVars.iReportDockedEconomyOnOverlay.get():
+        station_economies = entry.get("StationEconomies", [])
+        main_economy_localised = entry.get("StationEconomy_Localised")
+        lines = [
+            f"{'* ' if eco.get('Name_Localised') == main_economy_localised else '  '}"
+            f"{eco.get('Name_Localised', 'Unknown Economy')}: {eco.get('Proportion', 0.0):.1%}"
+            for eco in station_economies
+        ]
+        has_main = any(
+            eco.get("Name_Localised") == main_economy_localised
+            for eco in station_economies
+        )
+        if not has_main and main_economy_localised:
+            lines.append(f"(Economy '{main_economy_localised}' is not found in list.)")
+        __configVars.showTextOnOverlay(
+            text="\n".join(lines),
+            color=__station_economy_color,
+            messageType=cfv.OverlayOutputType.STATION_INFO,
+        )
+
+
 def journal_entry(cmdr, is_beta, system, station, entry, state):
     global __registeredColor
     global __unregisteredColor
@@ -192,6 +216,9 @@ def journal_entry(cmdr, is_beta, system, station, entry, state):
             if not this.next_is_route:
                 __visitedSystem(systemName)
         this.next_is_route = False
+
+    if entry["event"] == "Docked":
+        __display_economy_type_on_overlay(entry)
 
 
 def plugin_start3(plugin_dir: str) -> str:

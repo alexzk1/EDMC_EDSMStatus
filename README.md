@@ -11,6 +11,7 @@ I added automatic distancing. If you click 2 stars on galaxy map and both are kn
 So cool tool to measure of farmost sides.
 * Now it can use `EDSMOverlay` to display information too.
 * If `EDSMOverlay` is detected, sound can be disabled.
+* Now it can show just docked station's economics list on overlay. It is usable with construction update.
 
 When I say "click" I mean "select as jump target".
 
