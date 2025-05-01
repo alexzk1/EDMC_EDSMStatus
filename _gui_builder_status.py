@@ -98,7 +98,7 @@ def MakeGuiTable(parent, defines: list[TTextAndInputRow], initialRaw: int):
                             parent,
                             from_=1,
                             to=150,
-                            variable=item.iColVariable,                           
+                            variable=item.iColVariable,
                             orient=tk.HORIZONTAL,
                         ).grid(
                             row=initialRaw,
