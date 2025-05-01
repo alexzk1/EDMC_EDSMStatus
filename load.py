@@ -186,7 +186,7 @@ def __display_economy_type_on_overlay(entry):
         if not has_main and main_economy_localised:
             lines.append(f"(Economy '{main_economy_localised}' is not found in list.)")
         __configVars.showTextOnOverlay(
-            text="\n".join(lines),
+            text="; ".join(lines),
             color=__station_economy_color,
             messageType=cfv.OverlayOutputType.STATION_INFO,
         )
