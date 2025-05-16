@@ -162,8 +162,10 @@ def __visitedSystem(system: str):
         )
     else:
         __configVars.showTextOnOverlay(
-            "EDSM knows {}. Distance between last 2 selected: {}".format(
-                system, this.dist_overlay
+            "EDSM knows {}.{}Distance between last 2 selected: {}".format(
+                system,
+                "\n\t" if __configVars.iOverlayHasMultiline else " ",
+                this.dist_overlay,
             ),
             __registeredColor,
         )
@@ -186,7 +188,9 @@ def __display_economy_type_on_overlay(entry):
         if not has_main and main_economy_localised:
             lines.append(f"(Economy '{main_economy_localised}' is not found in list.)")
         __configVars.showTextOnOverlay(
-            text="; ".join(lines),
+            text="\n".join(lines)
+            if __configVars.iOverlayHasMultiline
+            else "; ".join(lines),
             color=__station_economy_color,
             messageType=cfv.OverlayOutputType.STATION_INFO,
         )

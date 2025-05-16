@@ -19,6 +19,14 @@ except ImportError:
         edmcoverlay = None
 
 
+def supports_multiline(obj) -> bool:
+    return (
+        hasattr(obj, "is_multiline_supported")
+        and callable(getattr(obj, "is_multiline_supported"))
+        and obj.is_multiline_supported()
+    )
+
+
 class OverlayOutputType(Enum):
     EDSM_INFO = (1,)
     STATION_INFO = (2,)
@@ -42,6 +50,7 @@ class ConfigVars:
     iDebug: tk.BooleanVar = tk.BooleanVar(value=False)
     iReportDockedEconomyOnOverlay: tk.BooleanVar = tk.BooleanVar(value=True)
     iEnableOverlay: tk.BooleanVar = tk.BooleanVar(value=True)
+    iOverlayHasMultiline: bool = False
     _iNoSoundOverlay: tk.BooleanVar = tk.BooleanVar(value=False)
     _iOverlayFadeSeconds: tk.IntVar = tk.IntVar(value=8)
     _iStationOverlayFadeSeconds: tk.IntVar = tk.IntVar(value=20)
@@ -50,6 +59,8 @@ class ConfigVars:
         self.iDebug.trace_add("write", self.__debug_switched)
         if edmcoverlay:
             self.iOverlay = edmcoverlay.Overlay()
+            self.iOverlayHasMultiline = supports_multiline(self.iOverlay)
+            logger.info("Overlay has multiline support: %i", self.iOverlayHasMultiline)
 
     # This must be in sync with declared fields.
     def __getJson2FieldMapper(self):
@@ -126,7 +137,15 @@ class ConfigVars:
 
         if self.iOverlay:
             listOverlay = [
-                gb.TTextAndInputRow("Overlay Configuration:", None, False),
+                gb.TTextAndInputRow(
+                    "Overlay Configuration ({}):".format(
+                        "supports multiline"
+                        if self.iOverlayHasMultiline
+                        else "no multiline"
+                    ),
+                    None,
+                    False,
+                ),
                 gb.TTextAndInputRow("Enable Overlay ", self.iEnableOverlay, False),
                 gb.TTextAndInputRow("Text Without Sound", self._iNoSoundOverlay, False),
                 gb.TTextAndInputRow("Text X Position", self.iXPos, False),
