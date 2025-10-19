@@ -31,10 +31,9 @@ this.dist_overlay: str = ""
 this.coord1 = None
 this.coord2 = None
 
-__registeredColor: str = "green"
-__unregisteredColor: str = "yellow"
-
-__station_economy_color: str = "#DDFFB450"
+__registeredColor: str = "#00FF40"
+__unregisteredColor: str = "#FFFF60"
+__station_economy_color: str = "#DDFFB485"
 
 __CaptionText = "EDSM System Checker With Overlay"
 __ShortCaptionText = "EDSM Checker"
