@@ -33,7 +33,7 @@ this.coord2 = None
 
 __registeredColor: str = "#00FF40"
 __unregisteredColor: str = "#FFFF60"
-__station_economy_color: str = "#DDFFB485"
+__station_economy_color: str = "#DDFFB4F0"
 
 __CaptionText = "EDSM System Checker With Overlay"
 __ShortCaptionText = "EDSM Checker"
