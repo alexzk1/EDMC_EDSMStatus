@@ -211,7 +211,7 @@ def journal_entry(cmdr, is_beta, system, station, entry, state):
         if not success:
             # Connection error - no sound, show overlay msg
             __configVars.showTextOnOverlay("EDSM connection error", __unregisteredColor)
-        elif edsm_data is None:
+        elif not edsm_data:
             this.next_jump_label["foreground"] = __unregisteredColor
             if not this.next_is_route:
                 __uknownSystem(systemName)
