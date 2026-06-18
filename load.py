@@ -66,22 +66,21 @@ def __calculateDistance(x1, y1, z1, x2, y2, z2):
 def __requestEdsm(system):
     global __configVars
 
-    # https://www.edsm.net/api-v1/system?systemName=Oochoss%20RI-B%20d13-0&showCoordinates=1&showInformation=0
     if not this.edsm_session:
         this.edsm_session = requests.Session()
-    edsm_data = None
+        this.edsm_session.headers.update({"User-Agent": "EDMC/1.0"})
+
     try:
         response = this.edsm_session.get(
-            "https://www.edsm.net/api-v1/system?&showCoordinates=1&showInformation=0&systemName=%s"
+            "https://www.edsm.net/api-v1/system?showCoordinates=1&showInformation=0&systemName=%s"
             % quote(system),
             timeout=min(90, max(3, __configVars.iEdsmTimeoutSeconds.get())),
         )
         response.raise_for_status()
-        edsm_data = response.json() or None  # Unknown system represented as empty list
-    except:  # noqa: E722
-        edsm_data = None
-
-    return edsm_data
+        return response.json(), True
+    except Exception as e:
+        logger.error("EDSM request error: %s" % str(e))
+        return None, False
 
 
 def __setLabelSystem(label, system):
@@ -207,10 +206,12 @@ def journal_entry(cmdr, is_beta, system, station, entry, state):
         systemName: str = entry["Name"]
 
         __setLabelSystem(this.next_jump_label, systemName)
-        edsm_data = __requestEdsm(systemName)
-        __updateDistancing(systemName, edsm_data)
+        edsm_data, success = __requestEdsm(systemName)
 
-        if edsm_data is None:
+        if not success:
+            # Connection error - no sound, show overlay msg
+            __configVars.showTextOnOverlay("EDSM connection error", __unregisteredColor)
+        elif edsm_data is None:
             this.next_jump_label["foreground"] = __unregisteredColor
             if not this.next_is_route:
                 __uknownSystem(systemName)
@@ -218,6 +219,8 @@ def journal_entry(cmdr, is_beta, system, station, entry, state):
             this.next_jump_label["foreground"] = __registeredColor
             if not this.next_is_route:
                 __visitedSystem(systemName)
+
+        __updateDistancing(systemName, edsm_data if success else None)
         this.next_is_route = False
 
     if entry["event"] == "Docked":
