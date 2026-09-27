@@ -94,8 +94,14 @@ class ConfigVars:
         """Loads stored settings."""
 
         loaded_str = config.get_str(self.__json_config_name)
-        if loaded_str is not None:
-            obj = json.loads(loaded_str)
+        if loaded_str:
+            obj = {}
+            try:
+            	obj = json.loads(loaded_str)
+            except Exception as err:
+            	logger.error(f"Failed to parse string from settings as JSON: '{loaded_str}'. Error {err}.")
+            	return
+
             for m in self.__getJson2FieldMapper():
                 if m.json_name in obj:
                     if isinstance(obj[m.json_name], dict):
