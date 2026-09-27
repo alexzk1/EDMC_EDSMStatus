@@ -95,7 +95,6 @@ class ConfigVars:
 
         loaded_str = config.get_str(self.__json_config_name)
         if loaded_str:
-            obj = {}
             try:
             	obj = json.loads(loaded_str)
             except Exception as err:
